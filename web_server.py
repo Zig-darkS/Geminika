@@ -5,10 +5,10 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
-from config import WEB_HOST, WEB_PORT
+from config import WEB_HOST, WEB_PORT, BRIDGE_TOKEN
 from voicemeeter_client import VoicemeeterClient
 
 if TYPE_CHECKING:
@@ -29,9 +29,18 @@ class StatusPayload(TrackHintPayload):
     volume: float | None = None
     muted: bool | None = None
 
+def _check_bridge_token(request: Request) -> None:
+    if not BRIDGE_TOKEN:
+        return
+    if request.headers.get("X-Bridge-Token") != BRIDGE_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid bridge token")
 
 def create_app(vm: VoicemeeterClient) -> FastAPI:
-    app = FastAPI(title="DiscordBot AHK Bridge", docs_url=None, redoc_url=None)
+    app = FastAPI(
+        title="DiscordBot AHK Bridge", 
+        docs_url=None, 
+        redoc_url=None,
+        dependencies=[Depends(_check_bridge_token)])
     app.state.bot = None  # type: MusicBot | None
     app.state.vm = vm
 

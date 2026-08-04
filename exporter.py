@@ -46,8 +46,7 @@ if not TOKEN:
     except Exception:
         pass
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-EXPORT_ROOT = SCRIPT_DIR / "exports"
+from config import EXPORT_ROOT
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -212,21 +211,6 @@ async def _export_message_stream(
             try:
                 if not file_path.is_file():
                     await att.save(file_path)
-                attachments_info.append(
-                    {
-                        "attachment_id": att.id,
-                        "filename": att.filename,
-                        "local_path": str(file_path),
-                        "size_bytes": att.size,
-                        "content_type": att.content_type,
-                    }
-                )
-                async with _stats_lock:
-                    _stats["media"] += 1
-            except Exception as exc:
-                print(f"\n    [file error] {att.filename}: {exc}")
-            try:
-                await att.save(file_path)
                 attachments_info.append(
                     {
                         "attachment_id": att.id,

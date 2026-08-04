@@ -41,9 +41,9 @@ from typing import Any, Optional
 import aiohttp
 import discord
 
-from config import SETTINGS_DIR
+from config import EXPORT_ROOT
 
-PROFILES_DIR: Path = SETTINGS_DIR / "exports" / "profiles"
+PROFILES_DIR: Path = EXPORT_ROOT / "profiles"
 
 
 @dataclass(slots=True)

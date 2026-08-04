@@ -1,7 +1,6 @@
 .env
-
+data/
 exports/
 _tools/cutedchat.json
 _tools/media_descriptions.json
-
 __pycache__/

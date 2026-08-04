@@ -13,15 +13,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Paths ---
-SETTINGS_DIR: Final[Path] = Path.home() / "Documents" / "DiscordBot" / "xd_bot"
-SETTINGS_FILE: Final[Path] = SETTINGS_DIR / "BotSettings.json"
+BASE_DIR: Final[Path] = Path(__file__).resolve().parent
+DATA_DIR: Final[Path] = BASE_DIR / "data"
+SETTINGS_FILE: Final[Path] = DATA_DIR / "BotSettings.json"
+EXPORT_ROOT: Final[Path] = BASE_DIR / "exports"  # общий корень для exporter.py и profile_tracker.py
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _load_discord_token() -> str:
-    env_token = os.environ.get("DISCORD_TOKEN", "").strip()
+    env_token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
     if env_token:
         return env_token
-    token_file = SETTINGS_DIR / "token.txt"
+    token_file = DATA_DIR / "token.txt"
     if token_file.is_file():
         try:
             return token_file.read_text(encoding="utf-8").strip()
@@ -33,6 +37,9 @@ def _load_discord_token() -> str:
 # --- Discord ---
 DISCORD_BOT_TOKEN: Final[str] = _load_discord_token()
 DISCORD_BOT_OWNER_ID: Final[int] = int(os.environ.get("DISCORD_BOT_OWNER_ID", "0"))
+
+# --- AHK bridge auth (пусто = проверка выключена) ---
+BRIDGE_TOKEN: Final[str] = os.environ.get("BRIDGE_TOKEN", "").strip()
 
 # --- Voicemeeter ---
 VM_DLL_PATH: Final[Path] = Path(

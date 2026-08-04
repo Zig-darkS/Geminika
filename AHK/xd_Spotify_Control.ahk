@@ -4,6 +4,33 @@
 
 #SingleInstance Force
 
+; Функция чтения значения из .env файла
+GetEnvValue(key, envPath := "") {
+    if (envPath = "")
+        envPath := A_ScriptDir "\..\.env"
+
+    if !FileExist(envPath)
+        return ""
+    
+    for line in StrSplit(FileRead(envPath, "UTF-8"), "`n", "`r") {
+        line := Trim(line)
+        if (line = "" || SubStr(line, 1, 1) = "#")
+            continue
+        
+        parts := StrSplit(line, "=", , 2)
+        if (parts.Length = 2 && Trim(parts[1]) = key) {
+            return Trim(parts[2], ' "' "'")
+        }
+    }
+    return ""
+}
+
+; Вызов становится максимально простым:
+global BRIDGE_TOKEN := GetEnvValue("BRIDGE_TOKEN")
+
+; Считываем токен при запуске скрипта
+global BRIDGE_TOKEN := GetEnvValue("BRIDGE_TOKEN")
+
 ; --- Voicemeeter (локально, мгновенно) ---
 vmDLL := "C:\Program Files (x86)\VB\Voicemeeter\VoicemeeterRemote64.dll"
 hModule := DllCall("LoadLibrary", "Str", vmDLL, "Ptr")
@@ -138,6 +165,7 @@ NotifyDiscordAsync(kind, value := "") {
         req := ComObject("WinHttp.WinHttpRequest.5.1")
         req.Open("POST", PY_BASE "/ahk/presence_notify", true)
         req.SetRequestHeader("Content-Type", "application/json; charset=utf-8")
+        req.SetRequestHeader("X-Bridge-Token", "BRIDGE_TOKEN")
         req.SetTimeouts(50, 50, 100, 100)
         req.Send(payload)
     } catch {
