@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Any
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
-from config import WEB_HOST, WEB_PORT, BRIDGE_TOKEN
-from voicemeeter_client import VoicemeeterClient
+from bot.config import BRIDGE_TOKEN, WEB_HOST, WEB_PORT
+from bot.services.voicemeeter_client import VoicemeeterClient
 
 if TYPE_CHECKING:
-    from bot_instance import MusicBot
+    from bot.bot import MusicBot
 
 
 class VolumePayload(BaseModel):

@@ -7,8 +7,8 @@ import asyncio
 import atexit
 import sys
 
-from bot_instance import create_bot
-from config import DISCORD_BOT_TOKEN, save_settings
+from bot.bot import create_bot
+from bot.config import DISCORD_BOT_TOKEN, save_settings
 from tray_app import start_tray
 from voicemeeter_client import VoicemeeterClient
 from web_server import bind_bot, create_app, serve_web

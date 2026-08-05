@@ -14,14 +14,14 @@ from typing import TYPE_CHECKING, Callable
 import pystray
 from PIL import Image, ImageDraw
 
-from config import get_setting, save_settings, toggle_setting
+from bot.config import get_setting, save_settings, toggle_setting
+
+from bot.config import BASE_DIR, get_setting, save_settings, toggle_setting
 
 if TYPE_CHECKING:
-    from bot_instance import MusicBot
+    from bot.bot import MusicBot
 
-PROJECT_DIR = Path(__file__).resolve().parent
-ICON_PATH = PROJECT_DIR / "icon.png"
-
+ICON_PATH = BASE_DIR / "icon.png"
 
 def load_tray_image(icon_path: Path | None = None) -> Image.Image:
     """Load tray icon from *icon.png* or build a simple fallback."""
@@ -127,8 +127,7 @@ class TrayApp:
 
         guild_id = int(env_guild_id)
 
-        project_dir = PROJECT_DIR
-        exporter_path = project_dir / "exporter.py"
+        exporter_path = BASE_DIR / "exporter.py"
         python_exe = sys.executable
 
         wt_path = shutil.which("wt") or shutil.which("wt.exe")

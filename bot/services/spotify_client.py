@@ -9,7 +9,7 @@ import psutil
 import win32gui
 import win32process
 
-from config import (
+from bot.config import (
     MEDIA_NEXT,
     MEDIA_PLAY_PAUSE,
     MEDIA_PREV,

@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Paths ---
-BASE_DIR: Final[Path] = Path(__file__).resolve().parent
+BASE_DIR: Final[Path] = Path(__file__).resolve().parent.parent
 DATA_DIR: Final[Path] = BASE_DIR / "data"
 SETTINGS_FILE: Final[Path] = DATA_DIR / "BotSettings.json"
 EXPORT_ROOT: Final[Path] = BASE_DIR / "exports"  # общий корень для exporter.py и profile_tracker.py
@@ -98,7 +98,7 @@ if not _vm_output_device_env:
     )
 VM_OUTPUT_DEVICE: Final[str] = _vm_output_device_env
 
-# ffmpeg-параметры для радио-стрима (start_radio в bot_instance.py).
+# ffmpeg-параметры для радио-стрима (start_radio в bot.bot.py).
 # Дефолты рассчитаны на низкую задержку при локальном захвате;
 # подстрой под своё железо/сеть через .env, если нужно.
 FFMPEG_BEFORE_ARGS: Final[str] = os.environ.get(
@@ -146,7 +146,7 @@ EMBED_COLOR: Final[int] = int(
     os.environ.get("EMBED_COLOR", "1DB954"), 16  # зелёный Spotify по умолчанию
 )
 
-# Кривая фейда громкости (vm_fade_volume в bot_instance.py): шаг в dB,
+# Кривая фейда громкости (vm_fade_volume в bot.bot.py): шаг в dB,
 # максимум шагов и пауза между ними. Раньше было "на глаз" зашито в методе.
 FADE_STEP_DB: Final[float] = float(os.environ.get("FADE_STEP_DB", "0.5"))
 FADE_MAX_STEPS: Final[int] = int(os.environ.get("FADE_MAX_STEPS", "20"))

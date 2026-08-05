@@ -41,7 +41,7 @@ from typing import Any, Optional
 import aiohttp
 import discord
 
-from config import EXPORT_ROOT
+from bot.config import EXPORT_ROOT
 
 PROFILES_DIR: Path = EXPORT_ROOT / "profiles"
 

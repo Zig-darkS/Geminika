@@ -42,13 +42,13 @@ TOKEN = os.environ.get("DISCORD_TOKEN", "").strip()
 if not TOKEN:
     # fall back to the same token file the main bot uses
     try:
-        from config import _load_discord_token  # type: ignore
+        from bot.config import _load_discord_token  # type: ignore
 
         TOKEN = _load_discord_token()
     except Exception:
         pass
 
-from config import EXPORT_ROOT
+from bot.config import EXPORT_ROOT
 
 intents = discord.Intents.default()
 intents.message_content = True

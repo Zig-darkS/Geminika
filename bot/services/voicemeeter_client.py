@@ -8,7 +8,7 @@ import threading
 from dataclasses import dataclass
 from typing import Final
 
-from config import VM_DLL_PATH, VM_MAX_DB, VM_MIN_DB, VM_STRIP_INDEX
+from bot.config import VM_DLL_PATH, VM_MAX_DB, VM_MIN_DB, VM_STRIP_INDEX
 
 _GAIN_PARAM: Final[bytes] = f"Strip[{VM_STRIP_INDEX}].Gain".encode("ascii")
 _MUTE_PARAM: Final[bytes] = f"Strip[{VM_STRIP_INDEX}].Mute".encode("ascii")
