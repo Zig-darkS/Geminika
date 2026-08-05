@@ -38,7 +38,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TOKEN = os.environ.get("DISCORD_TOKEN", "").strip()
+TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
 if not TOKEN:
     # fall back to the same token file the main bot uses
     try:
@@ -456,7 +456,7 @@ def main() -> None:
     _CLI_ARGS = build_arg_parser().parse_args()
 
     if not TOKEN:
-        print("DISCORD_TOKEN не найден (переменная окружения или token.txt).")
+        print("DISCORD_BOT_TOKEN не найден (переменная окружения или token.txt).")
         sys.exit(1)
     try:
         client.run(TOKEN)

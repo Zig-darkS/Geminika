@@ -272,7 +272,7 @@ async def run_bot(bot: MusicBot, token: str | None = None) -> None:
     resolved = (token or DISCORD_BOT_TOKEN).strip()
     if not resolved:
         raise RuntimeError(
-            "DISCORD_TOKEN is not set. Export it as an environment variable."
+            "DISCORD_BOT_TOKEN is not set. Export it as an environment variable."
         )
     async with bot:
         await bot.start(resolved)

@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     if not DISCORD_BOT_TOKEN.strip():
         print(
-            "Set DISCORD_TOKEN environment variable before starting main.py",
+            "Set DISCORD_BOT_TOKEN environment variable before starting main.py",
             file=sys.stderr,
         )
         sys.exit(1)
