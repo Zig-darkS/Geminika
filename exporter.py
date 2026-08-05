@@ -3,6 +3,7 @@ Windows Terminal window (real-time progress in stdout).
 
 Usage:
     python exporter.py <guild_id>
+    python exporter.py <guild_id> --recheck-limit 200 --recheck-max-age-hours 3
 
 Exports, per guild:
     exports/<guild_id>_<guild_name>/
@@ -23,6 +24,7 @@ are walked too, not just plain channels.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import os
@@ -53,6 +55,10 @@ intents.message_content = True
 intents.members = True
 
 client = discord.Client(intents=intents)
+
+# Заполняется в main() до client.run() — используется в on_ready(), у которого
+# нет доступа к argparse-неймспейсу иначе (discord.py сам вызывает on_ready).
+_CLI_ARGS: argparse.Namespace | None = None
 
 # --- live progress counters -------------------------------------------------
 _stats = {
@@ -165,13 +171,18 @@ def _now_iso_module() -> str:
 
 
 async def _export_message_stream(
-    channel: discord.abc.Messageable, base_dir: Path
+    channel: discord.abc.Messageable,
+    base_dir: Path,
+    *,
+    recheck_limit: int,
+    recheck_max_age_hours: float,
 ) -> int:
     """Export message history, resuming from where a previous run left off.
 
     If history.json already exists:
-    - the last up to 100 saved messages are re-fetched to catch edits/deletes
-      that happened since the previous run (see _recheck_recent_messages).
+    - the last up to `recheck_limit` saved messages are re-fetched to catch
+      edits/deletes that happened since the previous run (see
+      _recheck_recent_messages).
     - only messages newer than the last saved message_id are then fetched
       (via history(after=...)) and appended.
     Existing entries and already-downloaded media are otherwise left
@@ -192,7 +203,12 @@ async def _export_message_stream(
             last_id = max(m["message_id"] for m in messages_data)
             resume_after = discord.Object(id=last_id)
 
-    edited_n, deleted_n = await _recheck_recent_messages(channel, messages_data)
+    edited_n, deleted_n = await _recheck_recent_messages(
+        channel,
+        messages_data,
+        limit=recheck_limit,
+        max_age_hours=recheck_max_age_hours,
+    )
     if edited_n or deleted_n:
         async with _stats_lock:
             _stats["edited"] += edited_n
@@ -261,7 +277,11 @@ async def _export_message_stream(
 
 
 async def _export_channel_with_threads(
-    channel: discord.TextChannel, guild_dir: Path
+    channel: discord.TextChannel,
+    guild_dir: Path,
+    *,
+    recheck_limit: int,
+    recheck_max_age_hours: float,
 ) -> None:
     safe_name = _sanitize(channel.name)
     chan_dir = guild_dir / f"{channel.id}_{safe_name}"
@@ -269,7 +289,12 @@ async def _export_channel_with_threads(
 
     print(f"\n--> Канал: #{channel.name}")
     try:
-        n = await _export_message_stream(channel, chan_dir)
+        n = await _export_message_stream(
+            channel,
+            chan_dir,
+            recheck_limit=recheck_limit,
+            recheck_max_age_hours=recheck_max_age_hours,
+        )
         print(f"\n    Готово: +{n} новых сообщений.")
     except discord.Forbidden:
         print(f"\n    [пропуск] нет прав на чтение #{channel.name}")
@@ -302,7 +327,12 @@ async def _export_channel_with_threads(
         thread_dir.mkdir(parents=True, exist_ok=True)
         print(f"\n    --> Ветка: {thread.name}")
         try:
-            n = await _export_message_stream(thread, thread_dir)
+            n = await _export_message_stream(
+                thread,
+                thread_dir,
+                recheck_limit=recheck_limit,
+                recheck_max_age_hours=recheck_max_age_hours,
+            )
             print(f"\n        Готово: +{n} новых сообщений.")
         except discord.Forbidden:
             print(f"\n        [пропуск] нет прав на ветку {thread.name}")
@@ -345,7 +375,9 @@ def _dump_server_structure(guild: discord.Guild, guild_dir: Path) -> None:
     )
 
 
-async def run_export(guild_id: int) -> None:
+async def run_export(
+    guild_id: int, *, recheck_limit: int, recheck_max_age_hours: float
+) -> None:
     await client.wait_until_ready()
     guild = client.get_guild(guild_id)
     if not guild:
@@ -370,7 +402,12 @@ async def run_export(guild_id: int) -> None:
 
     start = time.monotonic()
     for channel in text_channels:
-        await _export_channel_with_threads(channel, guild_dir)
+        await _export_channel_with_threads(
+            channel,
+            guild_dir,
+            recheck_limit=recheck_limit,
+            recheck_max_age_hours=recheck_max_age_hours,
+        )
 
     progress_task.cancel()
     elapsed = time.monotonic() - start
@@ -386,14 +423,38 @@ async def run_export(guild_id: int) -> None:
 @client.event
 async def on_ready() -> None:
     print(f"Вход выполнен: {client.user}")
-    guild_id = int(sys.argv[1])
-    asyncio.create_task(run_export(guild_id))
+    assert _CLI_ARGS is not None
+    asyncio.create_task(
+        run_export(
+            _CLI_ARGS.guild_id,
+            recheck_limit=_CLI_ARGS.recheck_limit,
+            recheck_max_age_hours=_CLI_ARGS.recheck_max_age_hours,
+        )
+    )
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description="Полная выгрузка истории Discord-сервера")
+    p.add_argument("guild_id", type=int)
+    p.add_argument(
+        "--recheck-limit",
+        type=int,
+        default=100,
+        help="Сколько последних сообщений перепроверять на правки/удаления (по умолчанию 100)",
+    )
+    p.add_argument(
+        "--recheck-max-age-hours",
+        type=float,
+        default=1.0,
+        help="Не перепроверять сообщения старше этого возраста, в часах (по умолчанию 1.0)",
+    )
+    return p
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print("Использование: python exporter.py <guild_id>")
-        sys.exit(1)
+    global _CLI_ARGS
+    _CLI_ARGS = build_arg_parser().parse_args()
+
     if not TOKEN:
         print("DISCORD_TOKEN не найден (переменная окружения или token.txt).")
         sys.exit(1)

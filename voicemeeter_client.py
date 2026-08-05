@@ -8,12 +8,14 @@ import threading
 from dataclasses import dataclass
 from typing import Final
 
-from config import VM_DLL_PATH, VM_STRIP_INDEX
+from config import VM_DLL_PATH, VM_MAX_DB, VM_MIN_DB, VM_STRIP_INDEX
 
 _GAIN_PARAM: Final[bytes] = f"Strip[{VM_STRIP_INDEX}].Gain".encode("ascii")
 _MUTE_PARAM: Final[bytes] = f"Strip[{VM_STRIP_INDEX}].Mute".encode("ascii")
-_MIN_DB: Final[float] = -60.0
-_MAX_DB: Final[float] = 12.0
+# -60/12 dB — жёсткие пределы фейдера самого Voicemeeter (см. комментарий в
+# config.py), не "чей-то личный вкус"; значения приходят готовыми оттуда.
+_MIN_DB: Final[float] = VM_MIN_DB
+_MAX_DB: Final[float] = VM_MAX_DB
 
 
 @dataclass(frozen=True, slots=True)

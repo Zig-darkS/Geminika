@@ -13,9 +13,21 @@ from discord.ext import commands, tasks
 
 import config
 from config import (
+    COMMAND_PREFIX,
+    DEFAULT_LOCALE,
     DISCORD_BOT_TOKEN,
     DISCORD_BOT_OWNER_ID,
+    EMBED_COLOR,
+    FADE_MAX_STEPS,
+    FADE_STEP_DB,
+    FADE_STEP_DELAY_SECONDS,
+    FFMPEG_AFTER_ARGS,
+    FFMPEG_BEFORE_ARGS,
+    PRESENCE_UPDATE_INTERVAL_SECONDS,
+    VM_MAX_DB,
+    VM_MIN_DB,
     VM_OUTPUT_DEVICE,
+    VOLUME_STEP_DB,
     get_setting,
     get_settings,
     get_text,
@@ -27,6 +39,13 @@ from config import (
 from profile_tracker import ProfileTracker, install as install_profile_tracker
 from spotify_client import SpotifyClient, SpotifyTrackInfo
 from voicemeeter_client import VoicemeeterClient
+
+# Заголовок-заглушка для fallback-локали в местах без discord.Interaction
+# (обычные !-команды, где нет interaction.locale). Управляется через
+# DEFAULT_LOCALE в .env ("ru" или любое другое значение -> английский).
+_FALLBACK_LOCALE: discord.Locale = (
+    discord.Locale.russian if DEFAULT_LOCALE == "ru" else discord.Locale.american_english
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,7 +107,7 @@ class SpotifyControlView(discord.ui.View):
     async def vol_up_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        await self._bot(interaction).execute_vol(interaction, "add", 2.0)
+        await self._bot(interaction).execute_vol(interaction, "add", VOLUME_STEP_DB)
 
     @discord.ui.button(
         emoji="➖",
@@ -98,7 +117,7 @@ class SpotifyControlView(discord.ui.View):
     async def vol_down_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        await self._bot(interaction).execute_vol(interaction, "rem", 2.0)
+        await self._bot(interaction).execute_vol(interaction, "rem", VOLUME_STEP_DB)
 
     @discord.ui.button(
         emoji="🔇",
@@ -121,7 +140,7 @@ class MusicBot(commands.Bot):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True  # required for on_member_update (profile_tracker)
-        super().__init__(command_prefix="!", intents=intents)
+        super().__init__(command_prefix=COMMAND_PREFIX, intents=intents)
         self.vm = vm
         self.spotify = spotify
         self._last_track_name: str | None = None
@@ -135,13 +154,13 @@ class MusicBot(commands.Bot):
             title = (
                 info.title
                 if info.active
-                else get_text("nothing_playing", "ru")
+                else get_text("nothing_playing", DEFAULT_LOCALE)
             )
             return LiveStatusState(0.0, False, title, info.active)
         state = self.vm.get_state()
         info = self.spotify.get_track_info()
         title = (
-            info.title if info.active else get_text("nothing_playing", "ru")
+            info.title if info.active else get_text("nothing_playing", DEFAULT_LOCALE)
         )
         return LiveStatusState(
             state.volume_db, state.muted, title, info.active
@@ -161,12 +180,15 @@ class MusicBot(commands.Bot):
         )
         mute_icon = "🔇" if muted else "🔊"
         bar_size = 10
-        filled = int(((vol + 60) / 72) * bar_size)
+        # bar_size шкала калибрована под диапазон VM_MIN_DB..VM_MAX_DB
+        db_range = VM_MAX_DB - VM_MIN_DB
+        filled = int(((vol - VM_MIN_DB) / db_range) * bar_size) if db_range else 0
+        filled = max(0, min(bar_size, filled))
         bar = "▰" * filled + "▱" * (bar_size - filled)
         embed = discord.Embed(
             title=f"{mute_icon} {get_text('now_playing', locale)}",
             description=f"**{title}**",
-            color=0x1DB954,
+            color=EMBED_COLOR,
         )
         embed.add_field(
             name=get_text("volume_bar", locale),
@@ -177,14 +199,14 @@ class MusicBot(commands.Bot):
 
     async def vm_fade_volume(self, target_v: float) -> float:
         current = await asyncio.to_thread(self.vm.get_volume)
-        steps = int(abs(target_v - current) / 0.5)
-        steps = max(1, min(steps, 20))
+        steps = int(abs(target_v - current) / FADE_STEP_DB) if FADE_STEP_DB else 1
+        steps = max(1, min(steps, FADE_MAX_STEPS))
         delta = (target_v - current) / steps
         value = current
         for _ in range(steps):
             value += delta
             await asyncio.to_thread(self.vm.set_volume, value)
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(FADE_STEP_DELAY_SECONDS)
         return await asyncio.to_thread(self.vm.set_volume, target_v)
 
     async def update_status_data(
@@ -224,14 +246,14 @@ class MusicBot(commands.Bot):
                 else:
                     info = SpotifyTrackInfo(
                         title=self._last_track_name
-                        or get_text("nothing_playing", "ru"),
+                        or get_text("nothing_playing", DEFAULT_LOCALE),
                         active=bool(self._last_track_name),
                     )
 
                 track_name = (
                     info.title
                     if info.active
-                    else get_text("nothing_playing", "ru")
+                    else get_text("nothing_playing", DEFAULT_LOCALE)
                 )
 
                 if track_name != self._last_track_name:
@@ -267,7 +289,7 @@ class MusicBot(commands.Bot):
                             )
                             await msg.edit(
                                 embed=self.create_now_embed(
-                                    discord.Locale.russian,
+                                    _FALLBACK_LOCALE,
                                     info,
                                     vol,
                                     is_muted,
@@ -279,7 +301,7 @@ class MusicBot(commands.Bot):
             except Exception as exc:
                 print(f"Presence error: {exc}")
 
-    @tasks.loop(seconds=15)
+    @tasks.loop(seconds=PRESENCE_UPDATE_INTERVAL_SECONDS)
     async def update_presence(self) -> None:
         await self.update_status_data()
 
@@ -300,7 +322,7 @@ class MusicBot(commands.Bot):
         locale = (
             obj.locale
             if is_interaction
-            else discord.Locale.russian
+            else _FALLBACK_LOCALE
         )
 
         async def respond(text: str, *, ephemeral: bool = False) -> None:
@@ -344,15 +366,11 @@ class MusicBot(commands.Bot):
             return
         if vc.is_playing():
             vc.stop()
-        before_args = "-f dshow -rtbufsize 100M -audio_buffer_size 50"
-        after_args = (
-            "-vn -ac 2 -ar 48000 -threads 1 -preset ultrafast -tune zerolatency"
-        )
         try:
             source = discord.FFmpegPCMAudio(
                 f"audio={VM_OUTPUT_DEVICE}",
-                before_options=before_args,
-                options=after_args,
+                before_options=FFMPEG_BEFORE_ARGS,
+                options=FFMPEG_AFTER_ARGS,
             )
             vc.play(source)
         except Exception as exc:
@@ -366,7 +384,7 @@ class MusicBot(commands.Bot):
         locale = (
             target.locale
             if isinstance(target, discord.Interaction)
-            else discord.Locale.russian
+            else _FALLBACK_LOCALE
         )
         ok = await asyncio.to_thread(self.spotify.play_pause)
         msg = get_text("paused" if ok else "not_found", locale)
@@ -384,7 +402,7 @@ class MusicBot(commands.Bot):
         locale = (
             target.locale
             if isinstance(target, discord.Interaction)
-            else discord.Locale.russian
+            else _FALLBACK_LOCALE
         )
         ok = await asyncio.to_thread(self.spotify.next_track)
         msg = get_text("skipped" if ok else "not_found", locale)
@@ -402,7 +420,7 @@ class MusicBot(commands.Bot):
         locale = (
             target.locale
             if isinstance(target, discord.Interaction)
-            else discord.Locale.russian
+            else _FALLBACK_LOCALE
         )
         ok = await asyncio.to_thread(self.spotify.previous_track)
         msg = get_text("prev" if ok else "not_found", locale)
@@ -420,7 +438,7 @@ class MusicBot(commands.Bot):
         locale = (
             target.locale
             if isinstance(target, discord.Interaction)
-            else discord.Locale.russian
+            else _FALLBACK_LOCALE
         )
         ok = await asyncio.to_thread(self.spotify.previous_track_twice)
         msg = get_text("prev2" if ok else "not_found", locale)
@@ -441,7 +459,7 @@ class MusicBot(commands.Bot):
         is_interaction = isinstance(target, discord.Interaction)
         user = target.user if is_interaction else target.author
         locale = (
-            target.locale if is_interaction else discord.Locale.russian
+            target.locale if is_interaction else _FALLBACK_LOCALE
         )
         current = await asyncio.to_thread(self.vm.get_volume)
         if mode == "set":
@@ -471,12 +489,14 @@ class MusicBot(commands.Bot):
         is_interaction = isinstance(target, discord.Interaction)
         user = target.user if is_interaction else target.author
         locale = (
-            target.locale if is_interaction else discord.Locale.russian
+            target.locale if is_interaction else _FALLBACK_LOCALE
         )
         if user.id != DISCORD_BOT_OWNER_ID:
             msg = get_text("no_permission", locale)
         else:
-            mutate_setting("volume_ceiling", max(-60.0, min(12.0, db)))
+            # Потолок ограничен фактическим диапазоном Voicemeeter (VM_MIN_DB..VM_MAX_DB),
+            # а не захардкоженными -60/12.
+            mutate_setting("volume_ceiling", max(VM_MIN_DB, min(VM_MAX_DB, db)))
             save_settings()
             msg = get_text("vlimit_set", locale).format(
                 v=get_setting("volume_ceiling")
@@ -495,7 +515,7 @@ class MusicBot(commands.Bot):
         is_interaction = isinstance(target, discord.Interaction)
         user = target.user if is_interaction else target.author
         locale = (
-            target.locale if is_interaction else discord.Locale.russian
+            target.locale if is_interaction else _FALLBACK_LOCALE
         )
         if user.id != DISCORD_BOT_OWNER_ID:
             msg = get_text("no_permission", locale)
@@ -516,7 +536,7 @@ class MusicBot(commands.Bot):
         is_interaction = isinstance(target, discord.Interaction)
         user = target.user if is_interaction else target.author
         locale = (
-            target.locale if is_interaction else discord.Locale.russian
+            target.locale if is_interaction else _FALLBACK_LOCALE
         )
         if user.id != DISCORD_BOT_OWNER_ID:
             msg = get_text("no_permission", locale)
@@ -537,7 +557,7 @@ class MusicBot(commands.Bot):
         locale = (
             target.locale
             if isinstance(target, discord.Interaction)
-            else discord.Locale.russian
+            else _FALLBACK_LOCALE
         )
         info = await asyncio.to_thread(self.spotify.get_track_info)
         vol = await asyncio.to_thread(self.vm.get_volume)
@@ -555,7 +575,7 @@ class MusicBot(commands.Bot):
         is_interaction = isinstance(target, discord.Interaction)
         user = target.user if is_interaction else target.author
         locale = (
-            target.locale if is_interaction else discord.Locale.russian
+            target.locale if is_interaction else _FALLBACK_LOCALE
         )
         if user.id != DISCORD_BOT_OWNER_ID:
             text = get_text("no_permission", locale)
@@ -673,11 +693,11 @@ def register_commands(bot: MusicBot) -> None:
         await bot.execute_vol(interaction, "set", db)
 
     @bot.tree.command(name="vadd", description="Increase volume by dB")
-    async def vadd_cmd(interaction: discord.Interaction, db: float) -> None:
+    async def vadd_cmd(interaction: discord.Interaction, db: float = VOLUME_STEP_DB) -> None:
         await bot.execute_vol(interaction, "add", db)
 
     @bot.tree.command(name="vrem", description="Decrease volume by dB")
-    async def vrem_cmd(interaction: discord.Interaction, db: float) -> None:
+    async def vrem_cmd(interaction: discord.Interaction, db: float = VOLUME_STEP_DB) -> None:
         await bot.execute_vol(interaction, "rem", db)
 
     @bot.tree.command(name="vlimit", description="Volume ceiling (Owner)")
@@ -773,11 +793,11 @@ def register_commands(bot: MusicBot) -> None:
         await bot.execute_vol(ctx, "set", db)
 
     @bot.command(name="vadd")
-    async def vadd_p(ctx: commands.Context[Any], db: float) -> None:
+    async def vadd_p(ctx: commands.Context[Any], db: float = VOLUME_STEP_DB) -> None:
         await bot.execute_vol(ctx, "add", db)
 
     @bot.command(name="vrem")
-    async def vrem_p(ctx: commands.Context[Any], db: float) -> None:
+    async def vrem_p(ctx: commands.Context[Any], db: float = VOLUME_STEP_DB) -> None:
         await bot.execute_vol(ctx, "rem", db)
 
     @bot.command(name="vlimit")
@@ -815,7 +835,7 @@ def register_commands(bot: MusicBot) -> None:
             await bot.update_status_data(muted=muted)
             await ctx.send(
                 get_text(
-                    "muted" if muted else "unmuted", discord.Locale.russian
+                    "muted" if muted else "unmuted", _FALLBACK_LOCALE
                 )
             )
 

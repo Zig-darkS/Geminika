@@ -37,25 +37,81 @@ def _load_discord_token() -> str:
 # --- Discord ---
 DISCORD_BOT_TOKEN: Final[str] = _load_discord_token()
 DISCORD_BOT_OWNER_ID: Final[int] = int(os.environ.get("DISCORD_BOT_OWNER_ID", "0"))
+COMMAND_PREFIX: Final[str] = os.environ.get("COMMAND_PREFIX", "!")
+
+# "ru" или "default" (английский) — какой язык использовать, когда локаль
+# определить не получается (например, в !-командах вне слэш-интеракций).
+DEFAULT_LOCALE: Final[str] = (
+    "ru" if os.environ.get("DEFAULT_LOCALE", "ru").strip().lower().startswith("ru")
+    else "default"
+)
 
 # --- AHK bridge auth (пусто = проверка выключена) ---
 BRIDGE_TOKEN: Final[str] = os.environ.get("BRIDGE_TOKEN", "").strip()
 
+
 # --- Voicemeeter ---
-VM_DLL_PATH: Final[Path] = Path(
-    r"C:\Program Files (x86)\VB\Voicemeeter\VoicemeeterRemote64.dll"
-)
-VM_STRIP_INDEX: Final[int] = 7
+def _resolve_vm_dll_path() -> Path:
+    """VM_DLL_PATH из .env побеждает; иначе перебираем типичные варианты
+    установки (обычный Voicemeeter / Banana / Potato, с (x86) и без)."""
+    override = os.environ.get("VM_DLL_PATH", "").strip()
+    if override:
+        return Path(override)
+
+    candidates = [
+        r"C:\Program Files (x86)\VB\Voicemeeter\VoicemeeterRemote64.dll",
+        r"C:\Program Files\VB\Voicemeeter\VoicemeeterRemote64.dll",
+        r"C:\Program Files (x86)\VB\Voicemeeter\VoicemeeterRemote.dll",
+        r"C:\Program Files\VB\Voicemeeter\VoicemeeterRemote.dll",
+    ]
+    for c in candidates:
+        p = Path(c)
+        if p.is_file():
+            return p
+    # Ничего не нашли на диске — возвращаем исторический дефолт, чтобы
+    # существующая проверка "DLL не найдена" в voicemeeter_client.py
+    # сработала с осмысленным путём в сообщении об ошибке.
+    return Path(candidates[0])
+
+
+VM_DLL_PATH: Final[Path] = _resolve_vm_dll_path()
+VM_STRIP_INDEX: Final[int] = int(os.environ.get("VM_STRIP_INDEX", "7"))
+
+# ВАЖНО: -60.0 / 12.0 — это НЕ личное предпочтение, а собственные жёсткие
+# пределы фейдера страйпа/шины в самом Voicemeeter (физически дальше слайдер
+# не двигается ни в одной редакции — Basic/Banana/Potato). Менять их имеет
+# смысл только если хочешь сузить диапазон *бота* внутри этих границ;
+# выставить шире -60/12 бессмысленно — Voicemeeter всё равно обрежет сам.
+VM_MIN_DB: Final[float] = float(os.environ.get("VM_MIN_DB", "-60.0"))
+VM_MAX_DB: Final[float] = float(os.environ.get("VM_MAX_DB", "12.0"))
 
 # --- Audio / streaming ---
-VM_OUTPUT_DEVICE: Final[str] = os.environ.get(
-    "VM_OUTPUT_DEVICE",
-    "Voicemeeter Out B2 (VB-Audio Voicemeeter VAIO)",
+_vm_output_device_env = os.environ.get("VM_OUTPUT_DEVICE", "").strip()
+if not _vm_output_device_env:
+    raise RuntimeError(
+        "VM_OUTPUT_DEVICE не задан в .env. Это должно быть ТОЧНОЕ имя "
+        "виртуального выхода Voicemeeter (посмотри в Windows: Звук -> "
+        "Запись/Воспроизведение). Для Banana это обычно "
+        "'Voicemeeter Out B2 (VB-Audio Voicemeeter VAIO)', но для обычного "
+        "Voicemeeter или Potato имя другое — раньше бот тихо подставлял "
+        "чужой дефолт и стрим не запускался без единого понятного сообщения."
+    )
+VM_OUTPUT_DEVICE: Final[str] = _vm_output_device_env
+
+# ffmpeg-параметры для радио-стрима (start_radio в bot_instance.py).
+# Дефолты рассчитаны на низкую задержку при локальном захвате;
+# подстрой под своё железо/сеть через .env, если нужно.
+FFMPEG_BEFORE_ARGS: Final[str] = os.environ.get(
+    "FFMPEG_BEFORE_ARGS", "-f dshow -rtbufsize 100M -audio_buffer_size 50"
+)
+FFMPEG_AFTER_ARGS: Final[str] = os.environ.get(
+    "FFMPEG_AFTER_ARGS",
+    "-vn -ac 2 -ar 48000 -threads 1 -preset ultrafast -tune zerolatency",
 )
 
 # --- HTTP bridge (AHK -> Python) ---
-WEB_HOST: Final[str] = "127.0.0.1"
-WEB_PORT: Final[int] = 5000
+WEB_HOST: Final[str] = os.environ.get("WEB_HOST", "127.0.0.1")
+WEB_PORT: Final[int] = int(os.environ.get("WEB_PORT", "5000"))
 WEB_BASE_URL: Final[str] = f"http://{WEB_HOST}:{WEB_PORT}"
 
 # --- Multimedia (Win32) ---
@@ -64,13 +120,43 @@ MEDIA_NEXT: Final[int] = 0xB0000
 MEDIA_PLAY_PAUSE: Final[int] = 0xE0000
 MEDIA_PREV: Final[int] = 0xC0000
 
-SPOTIFY_IDLE_TITLES: Final[frozenset[str]] = frozenset(
-    {"Spotify", "Spotify Free", "Музыка без помех", ""}
+
+def _load_idle_titles() -> frozenset[str]:
+    """Базовый набор + всё, что пользователь добавил через
+    SPOTIFY_IDLE_TITLES_EXTRA (через запятую) в .env — нужно для
+    не-русских клиентов Spotify, у которых заголовок-заглушка не
+    'Музыка без помех', а что-то на их языке."""
+    base = {"Spotify", "Spotify Free", "Музыка без помех", ""}
+    extra = os.environ.get("SPOTIFY_IDLE_TITLES_EXTRA", "")
+    for title in extra.split(","):
+        title = title.strip()
+        if title:
+            base.add(title)
+    return frozenset(base)
+
+
+SPOTIFY_IDLE_TITLES: Final[frozenset[str]] = _load_idle_titles()
+
+# --- Громкость / presence — тюнинг ---
+VOLUME_STEP_DB: Final[float] = float(os.environ.get("VOLUME_STEP_DB", "2.0"))
+PRESENCE_UPDATE_INTERVAL_SECONDS: Final[int] = int(
+    os.environ.get("PRESENCE_UPDATE_INTERVAL_SECONDS", "15")
+)
+EMBED_COLOR: Final[int] = int(
+    os.environ.get("EMBED_COLOR", "1DB954"), 16  # зелёный Spotify по умолчанию
+)
+
+# Кривая фейда громкости (vm_fade_volume в bot_instance.py): шаг в dB,
+# максимум шагов и пауза между ними. Раньше было "на глаз" зашито в методе.
+FADE_STEP_DB: Final[float] = float(os.environ.get("FADE_STEP_DB", "0.5"))
+FADE_MAX_STEPS: Final[int] = int(os.environ.get("FADE_MAX_STEPS", "20"))
+FADE_STEP_DELAY_SECONDS: Final[float] = float(
+    os.environ.get("FADE_STEP_DELAY_SECONDS", "0.05")
 )
 
 # --- Default persisted settings ---
 DEFAULT_SETTINGS: Final[dict[str, Any]] = {
-    "volume_ceiling": -4.0,
+    "volume_ceiling": float(os.environ.get("VOLUME_CEILING_DEFAULT", "-4.0")),
     "auto_join": True,
     "auto_leave": True,
     "allow_others_vc": False,
@@ -147,7 +233,7 @@ _TRANSLATIONS: Final[dict[str, dict[str, str]]] = {
 
 def _resolve_lang(lang: Union[str, discord.Locale, None]) -> str:
     if lang is None:
-        return "default"
+        return DEFAULT_LOCALE
     code = str(lang).lower()
     return "ru" if code.startswith("ru") else "default"
 
@@ -178,7 +264,10 @@ def save_settings() -> None:
     """Persist current bot settings to JSON (thread-safe)."""
     with _settings_lock:
         try:
-            SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+            # BUG FIX: раньше тут был вызов не-существующей SETTINGS_DIR
+            # (был объявлен только DATA_DIR) — save_settings() падал бы
+            # с NameError при первом же сохранении.
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
             SETTINGS_FILE.write_text(
                 json.dumps(_bot_settings, indent=4, ensure_ascii=False),
                 encoding="utf-8",
