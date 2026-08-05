@@ -4,3 +4,4 @@ exports/
 _tools/cutedchat.json
 _tools/media_descriptions.json
 __pycache__/
+repomix-output.xml
