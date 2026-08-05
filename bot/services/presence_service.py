@@ -13,7 +13,7 @@ from bot.config import (
     get_setting,
     get_text,
 )
-from spotify_client import SpotifyTrackInfo
+from bot.services.spotify_client import SpotifyTrackInfo
 from bot.services.embed_service import create_now_embed
 from bot.views.spotify_control_view import SpotifyControlView
 

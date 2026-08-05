@@ -5,10 +5,10 @@ from typing import Any, Union
 import discord
 from discord.ext import commands
 
-from bot.config import DISCORD_BOT_OWNER_ID, get_setting, get_text
+from bot.config import DEFAULT_LOCALE, DISCORD_BOT_OWNER_ID, get_setting, get_text
 
 _FALLBACK_LOCALE: discord.Locale = (
-    discord.Locale.russian if get_setting("DEFAULT_LOCALE", "ru") == "ru" else discord.Locale.american_english
+    discord.Locale.russian if DEFAULT_LOCALE == "ru" else discord.Locale.american_english
 )
 
 

@@ -1,7 +1,7 @@
 import discord
 
 from bot.config import EMBED_COLOR, VM_MAX_DB, VM_MIN_DB, get_text
-from spotify_client import SpotifyTrackInfo
+from bot.services.spotify_client import SpotifyTrackInfo
 
 def create_now_embed(
     locale: discord.Locale | str | None,

@@ -26,9 +26,9 @@ from bot.config import (
     toggle_setting,
     update_settings,
 )
-from profile_tracker import ProfileTracker, install as install_profile_tracker
-from spotify_client import SpotifyClient
-from voicemeeter_client import VoicemeeterClient
+from bot.services.profile_tracker import ProfileTracker, install as install_profile_tracker
+from bot.services.spotify_client import SpotifyClient
+from bot.services.voicemeeter_client import VoicemeeterClient
 
 from bot.commands import register_all_commands
 from bot.events import register_all_events

@@ -9,9 +9,9 @@ import sys
 
 from bot.bot import create_bot
 from bot.config import DISCORD_BOT_TOKEN, save_settings
-from tray_app import start_tray
-from voicemeeter_client import VoicemeeterClient
-from web_server import bind_bot, create_app, serve_web
+from bot.ui.tray_app import start_tray
+from bot.services.voicemeeter_client import VoicemeeterClient
+from bot.web.web_server import bind_bot, create_app, serve_web
 
 
 def hide_console_window() -> None:

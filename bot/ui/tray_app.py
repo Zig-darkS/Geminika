@@ -14,8 +14,6 @@ from typing import TYPE_CHECKING, Callable
 import pystray
 from PIL import Image, ImageDraw
 
-from bot.config import get_setting, save_settings, toggle_setting
-
 from bot.config import BASE_DIR, get_setting, save_settings, toggle_setting
 
 if TYPE_CHECKING:
@@ -139,7 +137,7 @@ class TrayApp:
             try:
                 subprocess.Popen(
                     [python_exe, str(exporter_path), str(guild_id)],
-                    cwd=str(project_dir),
+                    cwd=str(BASE_DIR),
                     creationflags=subprocess.CREATE_NEW_CONSOLE,
                 )
             except Exception as exc:
@@ -156,12 +154,12 @@ class TrayApp:
                     "--title",
                     "Discord Export",
                     "-d",
-                    str(project_dir),
+                    str(BASE_DIR),
                     python_exe,
                     str(exporter_path),
                     str(guild_id),
                 ],
-                cwd=str(project_dir),
+                cwd=str(BASE_DIR),
             )
         except Exception as exc:
             print(f"[tray] Не удалось запустить Windows Terminal: {exc}")
