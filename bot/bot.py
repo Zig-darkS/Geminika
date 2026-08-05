@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 from typing import Any, Literal, Union
 
 import discord
@@ -54,9 +53,6 @@ class MusicBot(commands.Bot):
 
         self.vm = vm
         self.spotify = spotify
-        self._last_track_name: str | None = None
-        self._track_start_time: int = int(time.time())
-        self._status_lock = asyncio.Lock()
         self.profile_tracker = ProfileTracker()
 
         # Services

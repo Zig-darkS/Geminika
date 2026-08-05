@@ -31,7 +31,7 @@ class SpotifyControlView(discord.ui.View):
     async def prev_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        await self._bot(interaction).execute_prev(interaction)
+        await self._bot(interaction).spotify_service.previous(interaction)
 
     @discord.ui.button(
         emoji="⏯️",
@@ -41,7 +41,7 @@ class SpotifyControlView(discord.ui.View):
     async def pause_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        await self._bot(interaction).execute_pause(interaction)
+        await self._bot(interaction).spotify_service.pause(interaction)
 
     @discord.ui.button(
         emoji="⏭️",
@@ -51,7 +51,7 @@ class SpotifyControlView(discord.ui.View):
     async def skip_btn(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        await self._bot(interaction).execute_skip(interaction)
+        await self._bot(interaction).spotify_service.skip(interaction)
 
     @discord.ui.button(
         emoji="➕",
@@ -82,8 +82,8 @@ class SpotifyControlView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         bot = self._bot(interaction)
-        if await bot.is_allowed(interaction):
+        if await bot.permissions.is_allowed(interaction):
             muted = await asyncio.to_thread(bot.vm.toggle_mute)
-            await bot.update_status_data(muted=muted)
+            await bot.presence.update_status_data(muted=muted)
             msg = get_text("muted" if muted else "unmuted", interaction.locale)
             await interaction.response.send_message(msg, ephemeral=True)

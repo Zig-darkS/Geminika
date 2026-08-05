@@ -67,7 +67,7 @@ def create_app(vm: VoicemeeterClient) -> FastAPI:
                 kwargs["track_title"] = payload.track_title
             if payload.track_active is not None:
                 kwargs["track_active"] = payload.track_active
-        await bot.update_status_data(refresh_track=refresh_track, **kwargs)
+        await bot.presence.update_status_data(refresh_track=refresh_track, **kwargs)
         state = bot.get_live_state()
         return {
             "ok": True,

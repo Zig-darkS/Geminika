@@ -70,47 +70,47 @@ class TrayApp:
         return lambda _item: bool(get_setting(key, False))
 
     def _on_refresh(self, _icon: pystray.Icon, _item: pystray.MenuItem) -> None:
-        self._schedule(self._bot.update_status_data())
+        self._schedule(self._bot.presence.update_status_data())
 
     def _on_pause(self, _icon: pystray.Icon, _item: pystray.MenuItem) -> None:
         async def _work() -> None:
             await asyncio.to_thread(self._bot.spotify.play_pause)
-            await self._bot.update_status_data()
+            await self._bot.presence.update_status_data()
 
         self._schedule(_work())
 
     def _on_skip(self, _icon: pystray.Icon, _item: pystray.MenuItem) -> None:
         async def _work() -> None:
             await asyncio.to_thread(self._bot.spotify.next_track)
-            await self._bot.update_status_data()
+            await self._bot.presence.update_status_data()
 
         self._schedule(_work())
 
     def _on_prev(self, _icon: pystray.Icon, _item: pystray.MenuItem) -> None:
         async def _work() -> None:
             await asyncio.to_thread(self._bot.spotify.previous_track)
-            await self._bot.update_status_data()
+            await self._bot.presence.update_status_data()
 
         self._schedule(_work())
 
     def _on_mute(self, _icon: pystray.Icon, _item: pystray.MenuItem) -> None:
         async def _work() -> None:
             muted = await asyncio.to_thread(self._bot.vm.toggle_mute)
-            await self._bot.update_status_data(muted=muted)
+            await self._bot.presence.update_status_data(muted=muted)
 
         self._schedule(_work())
 
     def _on_vol_up(self, _icon: pystray.Icon, _item: pystray.MenuItem) -> None:
         async def _work() -> None:
             vol = await asyncio.to_thread(self._bot.vm.change_volume, 2.0)
-            await self._bot.update_status_data(volume=vol)
+            await self._bot.presence.update_status_data(volume=vol)
 
         self._schedule(_work())
 
     def _on_vol_down(self, _icon: pystray.Icon, _item: pystray.MenuItem) -> None:
         async def _work() -> None:
             vol = await asyncio.to_thread(self._bot.vm.change_volume, -2.0)
-            await self._bot.update_status_data(volume=vol)
+            await self._bot.presence.update_status_data(volume=vol)
 
         self._schedule(_work())
 
