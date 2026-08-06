@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from bot.config import BRIDGE_TOKEN, WEB_HOST, WEB_PORT
 from bot.services.voicemeeter_client import VoicemeeterClient
 
+import secrets
+
 if TYPE_CHECKING:
     from bot.bot import MusicBot
 
@@ -32,7 +34,8 @@ class StatusPayload(TrackHintPayload):
 def _check_bridge_token(request: Request) -> None:
     if not BRIDGE_TOKEN:
         return
-    if request.headers.get("X-Bridge-Token") != BRIDGE_TOKEN:
+    token = request.headers.get("X-Bridge-Token", "")
+    if not secrets.compare_digest(token, BRIDGE_TOKEN):
         raise HTTPException(status_code=401, detail="Invalid bridge token")
 
 def create_app(vm: VoicemeeterClient) -> FastAPI:
@@ -64,9 +67,9 @@ def create_app(vm: VoicemeeterClient) -> FastAPI:
             if payload.muted is not None:
                 kwargs["muted"] = payload.muted
             if payload.track_title is not None:
-                kwargs["track_title"] = payload.track_title
-            if payload.track_active is not None:
-                kwargs["track_active"] = payload.track_active
+                parsed_title, is_active = bot.spotify.parse_external_title(payload.track_title)
+                kwargs["track_title"] = parsed_title
+                kwargs["track_active"] = is_active
         await bot.presence.update_status_data(refresh_track=refresh_track, **kwargs)
         state = bot.get_live_state()
         return {
@@ -170,7 +173,13 @@ def bind_bot(app: FastAPI, bot: MusicBot) -> None:
 
 
 async def serve_web(app: FastAPI, host: str = WEB_HOST, port: int = WEB_PORT) -> None:
+    import logging
     import uvicorn
+
+    if not BRIDGE_TOKEN and host not in ("127.0.0.1", "localhost", "::1"):
+        logging.getLogger("uvicorn.error").warning(
+            "BRIDGE_TOKEN isn't set, but WEB_HOST (%s) is open to external connections. This could be vulnerable.", host
+        )
 
     config = uvicorn.Config(
         app,
