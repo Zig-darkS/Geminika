@@ -13,6 +13,8 @@
 
 from __future__ import annotations
 
+import traceback
+
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -36,32 +38,43 @@ def _safe_name(user: Optional[discord.abc.User]) -> str:
 
 
 class SyncedWaveSink(voice_recv.WaveSink):
-    """WaveSink, добивающий файл тишиной по wall-clock времени."""
-
     BYTES_PER_SECOND = (
         voice_recv.WaveSink.SAMPLING_RATE
         * voice_recv.WaveSink.CHANNELS
         * voice_recv.WaveSink.SAMPLE_WIDTH
-    )  # 48000 * 2 * 2 = 192000
-    FRAME_SIZE = voice_recv.WaveSink.CHANNELS * voice_recv.WaveSink.SAMPLE_WIDTH  # 4
+    )
 
-    def __init__(self, destination: str, session_start: float) -> None:
+    FRAME_SIZE = (
+        voice_recv.WaveSink.CHANNELS
+        * voice_recv.WaveSink.SAMPLE_WIDTH
+    )
+
+    def __init__(self, destination: str, session_start: float):
         super().__init__(destination)
         self._session_start = session_start
         self._bytes_written = 0
 
-    def write(self, user, data) -> None:
-        elapsed = time.perf_counter() - self._session_start
-        expected_bytes = int(elapsed * self.BYTES_PER_SECOND)
-        expected_bytes -= expected_bytes % self.FRAME_SIZE  # выравнивание по фрейму
+    def write(self, user, data):
+        print(user, len(data.pcm))
+        self._sink_for(user).write(user, data)
 
-        gap = expected_bytes - self._bytes_written
-        if gap > 0:
-            self._file.writeframes(b"\x00" * gap)
-            self._bytes_written += gap
+        pcm = data.pcm
+        if not pcm:
+            return
 
-        self._file.writeframes(data.pcm)
-        self._bytes_written += len(data.pcm)
+        expected = int(
+            (time.perf_counter() - self._session_start)
+            * self.BYTES_PER_SECOND
+        )
+        expected -= expected % self.FRAME_SIZE
+
+        if expected > self._bytes_written:
+            silence = expected - self._bytes_written
+            self._file.writeframesraw(b"\x00" * silence)
+            self._bytes_written += silence
+
+        self._file.writeframesraw(pcm)
+        self._bytes_written += len(pcm)
 
 
 class PerUserSink(voice_recv.AudioSink):
@@ -122,19 +135,23 @@ class RecordingService:
 
         self._sink = PerUserSink(session_dir, session_start)
         self._session_dir = session_dir
+
+        if vc.is_listening():
+            vc.stop_listening()
+
         vc.listen(self._sink)
         print(f"[recording] авто-запись начата: {session_dir}")
         return session_dir
 
     def stop(self, guild: discord.Guild) -> Path | None:
+        print("Stop called")
+        traceback.print_stack(limit=10)
         vc = guild.voice_client
         if isinstance(vc, voice_recv.VoiceRecvClient) and vc.is_listening():
             vc.stop_listening()
 
         finished_dir = self._session_dir
-        if self._sink is not None:
-            self._sink.cleanup()
-            print(f"[recording] запись остановлена: {finished_dir}")
+        print(f"[recording] запись остановлена: {finished_dir}")
         self._sink = None
         self._session_dir = None
         return finished_dir
