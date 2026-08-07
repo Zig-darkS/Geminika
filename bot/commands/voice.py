@@ -30,6 +30,7 @@ def register_voice_commands(bot: MusicBot) -> None:
             await vc.move_to(channel)
         else:
             await channel.connect(self_deaf=False, cls=voice_recv.VoiceRecvClient)
+            bot.recording.start(interaction.guild)
 
         await bot.start_radio(interaction.guild)
         await interaction.response.send_message(

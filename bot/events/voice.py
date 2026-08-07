@@ -4,9 +4,10 @@ import asyncio
 from typing import TYPE_CHECKING
 
 import discord
+from discord.ext import voice_recv
 
 from bot.config import DISCORD_BOT_OWNER_ID, get_setting
-from discord.ext import voice_recv
+
 if TYPE_CHECKING:
     from bot.bot import MusicBot
 
@@ -20,11 +21,14 @@ def register_voice_events(bot: MusicBot) -> None:
     ) -> None:
         if member.id != DISCORD_BOT_OWNER_ID:
             return
+
         if before.channel and after.channel is None and get_setting("auto_leave"):
             vc = member.guild.voice_client
             if vc:
+                bot.recording.stop(member.guild)
                 await vc.disconnect()
             return
+
         if (
             after.channel
             and before.channel != after.channel
@@ -32,8 +36,11 @@ def register_voice_events(bot: MusicBot) -> None:
         ):
             vc = member.guild.voice_client
             if vc:
-                await vc.move_to(after.channel)
+                await vc.move_to(after.channel)  # сессия записи не прерывается
             else:
-                await after.channel.connect(self_deaf=False, cls=voice_recv.VoiceRecvClient)
+                await after.channel.connect(
+                    self_deaf=False, cls=voice_recv.VoiceRecvClient
+                )
+                bot.recording.start(member.guild)
             await asyncio.sleep(1)
             await bot.start_radio(member.guild)
