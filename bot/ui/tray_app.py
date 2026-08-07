@@ -125,7 +125,7 @@ class TrayApp:
 
         guild_id = int(env_guild_id)
 
-        exporter_path = BASE_DIR / "exporter.py"
+        exporter_path = BASE_DIR / "bot" / "exporter.py"
         python_exe = sys.executable
 
         wt_path = shutil.which("wt") or shutil.which("wt.exe")
@@ -136,7 +136,7 @@ class TrayApp:
             )
             try:
                 subprocess.Popen(
-                    [python_exe, str(exporter_path), str(guild_id)],
+                    [python_exe, "-m", "bot.exporter", str(guild_id)],
                     cwd=str(BASE_DIR),
                     creationflags=subprocess.CREATE_NEW_CONSOLE,
                 )
@@ -156,7 +156,8 @@ class TrayApp:
                     "-d",
                     str(BASE_DIR),
                     python_exe,
-                    str(exporter_path),
+                    "-m",
+                    "bot.exporter",
                     str(guild_id),
                 ],
                 cwd=str(BASE_DIR),
