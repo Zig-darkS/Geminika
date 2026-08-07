@@ -55,9 +55,6 @@ class SyncedWaveSink(voice_recv.WaveSink):
         self._bytes_written = 0
 
     def write(self, user, data):
-        print(user, len(data.pcm))
-        self._sink_for(user).write(user, data)
-
         pcm = data.pcm
         if not pcm:
             return
@@ -98,7 +95,7 @@ class PerUserSink(voice_recv.AudioSink):
             self._sinks[user_id] = sink
         return sink
 
-    def write(self, user, data) -> None:
+    def write(self, user, data):
         self._sink_for(user).write(user, data)
 
     def cleanup(self) -> None:
