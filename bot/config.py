@@ -20,7 +20,6 @@ EXPORT_ROOT: Final[Path] = BASE_DIR / "exports"  # общий корень дл�
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-
 def _load_discord_token() -> str:
     env_token = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
     if env_token:

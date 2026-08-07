@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from bot.config import DISCORD_BOT_OWNER_ID, get_setting
-
+from discord.ext import voice_recv
 if TYPE_CHECKING:
     from bot.bot import MusicBot
 
@@ -34,6 +34,6 @@ def register_voice_events(bot: MusicBot) -> None:
             if vc:
                 await vc.move_to(after.channel)
             else:
-                await after.channel.connect(self_deaf=True)
+                await after.channel.connect(self_deaf=False, cls=voice_recv.VoiceRecvClient)
             await asyncio.sleep(1)
             await bot.start_radio(member.guild)

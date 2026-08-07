@@ -38,6 +38,7 @@ from bot.services.presence_service import PresenceService
 from bot.services.spotify_service import SpotifyService
 from bot.services.volume_service import VolumeService
 from bot.views.spotify_control_view import SpotifyControlView
+from bot.services.recording_service import RecordingService
 
 _FALLBACK_LOCALE: discord.Locale = (
     discord.Locale.russian if DEFAULT_LOCALE == "ru" else discord.Locale.american_english
@@ -60,6 +61,7 @@ class MusicBot(commands.Bot):
         self.presence = PresenceService(self)
         self.volume = VolumeService(self)
         self.spotify_service = SpotifyService(self)
+        self.recording = RecordingService(self)
 
     def get_live_state(self) -> LiveStatusState:
         if not self.vm.is_connected:

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from bot.config import get_text
-
+from discord.ext import voice_recv
 if TYPE_CHECKING:
     from bot.bot import MusicBot
 
@@ -29,7 +29,7 @@ def register_voice_commands(bot: MusicBot) -> None:
         if vc:
             await vc.move_to(channel)
         else:
-            await channel.connect(self_deaf=True)
+            await channel.connect(self_deaf=False, cls=voice_recv.VoiceRecvClient)
 
         await bot.start_radio(interaction.guild)
         await interaction.response.send_message(
